@@ -156,10 +156,29 @@ h2 {
 
 .publication {
   margin: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+  max-width: 100%;
+}
+
+.publication-figure {
+  width: 100%;
+  margin: 0;
+}
+
+.publication-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
 }
 
 .citation {
   margin: 0;
+  min-width: 0;
   font-size: 16px;
   line-height: 1.62;
 }
@@ -239,6 +258,15 @@ footer {
   .profile-photo-wrap {
     width: 160px;
     margin: 0 0 22px;
+  }
+
+  .publication {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .publication-figure {
+    width: min(230px, 100%);
   }
 
   .experience-heading {
