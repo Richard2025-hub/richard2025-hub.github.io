@@ -195,7 +195,11 @@ h2 {
 }
 
 .plain-list.compact li {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.honours-list {
+  line-height: 1.5;
 }
 
 .honour-grantor {
