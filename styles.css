@@ -198,6 +198,15 @@ h2 {
   margin-bottom: 7px;
 }
 
+.honours-list {
+  font-size: 0.86em;
+}
+
+.honour-grantor {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
 .experience-list {
   list-style: none;
   padding-left: 0;
@@ -273,4 +282,9 @@ footer {
     flex-direction: column;
     gap: 2px;
   }
+
+  .honours-list {
+    font-size: 0.95em;
+  }
 }
+
