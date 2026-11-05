@@ -195,16 +195,12 @@ h2 {
 }
 
 .plain-list.compact li {
-  margin-bottom: 7px;
-}
-
-.honours-list {
-  font-size: 0.86em;
+  margin-bottom: 12px;
 }
 
 .honour-grantor {
+  display: block;
   color: var(--muted);
-  font-size: 0.9em;
 }
 
 .experience-list {
@@ -283,7 +279,4 @@ footer {
     gap: 2px;
   }
 
-  .honours-list {
-    font-size: 0.95em;
-  }
 }
