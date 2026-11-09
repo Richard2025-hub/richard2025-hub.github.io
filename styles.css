@@ -20,7 +20,7 @@ body {
   color: var(--text);
   background: #fff;
   font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.6;
   font-kerning: normal;
 }
@@ -54,7 +54,7 @@ a:focus-visible {
 
 .site-name {
   color: var(--text);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -74,7 +74,7 @@ nav {
 
 nav a {
   color: #444;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .intro {
@@ -91,7 +91,7 @@ nav a {
 .intro h1 {
   grid-area: title;
   margin: 0 0 18px;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 600;
   line-height: 1.25;
 }
@@ -133,7 +133,7 @@ h2 {
   margin: 0 0 22px;
   padding-bottom: 7px;
   border-bottom: 1px solid var(--border);
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 600;
   line-height: 1.3;
 }
@@ -149,7 +149,7 @@ h2 {
 
 .paper-subheading {
   margin: 0 0 14px;
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -179,7 +179,7 @@ h2 {
 .citation {
   margin: 0;
   min-width: 0;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.62;
 }
 
@@ -195,7 +195,7 @@ h2 {
 }
 
 .plain-list.compact li {
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 
 .honours-list {
@@ -225,13 +225,13 @@ h2 {
 .experience-heading span {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .experience-list p {
   margin: 4px 0 0;
   color: #444;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 footer {
@@ -239,7 +239,7 @@ footer {
   padding: 22px 0 40px;
   border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 @media (max-width: 680px) {
