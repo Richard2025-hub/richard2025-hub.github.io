@@ -9,7 +9,44 @@
     <link rel="canonical" href="https://richard2025-hub.github.io/" />
     <link rel="sitemap" type="application/xml" href="./sitemap.xml" />
     <title>Yunxiang SHU（束云翔） | Academic Homepage</title>
-    <link rel="stylesheet" href="./styles.css?v=20261120-paper" />
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const storageKey = "yunxiang-homepage-theme";
+        const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+        let preference = null;
+
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved === "light" || saved === "dark") preference = saved;
+        } catch {}
+
+        const applyTheme = (theme) => {
+          root.dataset.theme = theme;
+          const toggle = document.getElementById("theme-toggle");
+          if (!toggle) return;
+          toggle.setAttribute("aria-checked", String(theme === "dark"));
+          toggle.title = theme === "dark" ? "Switch to day mode" : "Switch to night mode";
+        };
+
+        applyTheme(preference || (systemTheme.matches ? "dark" : "light"));
+
+        document.addEventListener("DOMContentLoaded", () => {
+          const toggle = document.getElementById("theme-toggle");
+          applyTheme(root.dataset.theme);
+          toggle.hidden = false;
+          toggle.addEventListener("click", () => {
+            preference = root.dataset.theme === "dark" ? "light" : "dark";
+            applyTheme(preference);
+            try { localStorage.setItem(storageKey, preference); } catch {}
+          });
+          systemTheme.addEventListener("change", (event) => {
+            if (!preference) applyTheme(event.matches ? "dark" : "light");
+          });
+        });
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css?v=20261120-network-theme" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -31,19 +68,35 @@
     </script>
   </head>
   <body>
-    <div class="ambient-paper" aria-hidden="true">
-      <svg class="paper-lines paper-lines--upper" viewBox="0 0 600 360" fill="none" focusable="false">
-        <g>
-          <path d="M-80 148 Q260 88 680 202" />
-          <path d="M-80 174 Q260 114 680 228" />
-          <path d="M-80 200 Q260 140 680 254" />
+    <div class="ambient-network" aria-hidden="true">
+      <svg class="network-map network-map--left" viewBox="0 0 280 900" fill="none" focusable="false">
+        <g class="network-edges">
+          <path d="M30 150 125 210 45 360 195 380 125 210 M45 360 115 545 195 380 M115 545 25 675 190 710 115 545 M190 710 120 860" />
+        </g>
+        <g class="network-nodes">
+          <circle cx="30" cy="150" r="2.5" /><circle cx="125" cy="210" r="2.5" />
+          <circle cx="45" cy="360" r="2.5" /><circle cx="195" cy="380" r="2.5" />
+          <circle cx="115" cy="545" r="2.5" /><circle cx="25" cy="675" r="2.5" />
+          <circle cx="190" cy="710" r="2.5" /><circle cx="120" cy="860" r="2.5" />
+        </g>
+        <g class="network-traces">
+          <path class="network-trace" pathLength="100" d="M30 150 125 210 195 380 115 545 190 710 120 860" />
+          <path class="network-trace network-trace--secondary" pathLength="100" d="M125 210 45 360 115 545 25 675 190 710" />
         </g>
       </svg>
-      <svg class="paper-lines paper-lines--lower" viewBox="0 0 600 360" fill="none" focusable="false">
-        <g>
-          <path d="M-80 148 Q260 88 680 202" />
-          <path d="M-80 174 Q260 114 680 228" />
-          <path d="M-80 200 Q260 140 680 254" />
+      <svg class="network-map network-map--right" viewBox="0 0 280 900" fill="none" focusable="false">
+        <g class="network-edges">
+          <path d="M250 85 150 210 240 345 85 390 150 210 M240 345 175 550 85 390 M175 550 255 690 90 735 175 550 M90 735 160 870" />
+        </g>
+        <g class="network-nodes">
+          <circle cx="250" cy="85" r="2.5" /><circle cx="150" cy="210" r="2.5" />
+          <circle cx="240" cy="345" r="2.5" /><circle cx="85" cy="390" r="2.5" />
+          <circle cx="175" cy="550" r="2.5" /><circle cx="255" cy="690" r="2.5" />
+          <circle cx="90" cy="735" r="2.5" /><circle cx="160" cy="870" r="2.5" />
+        </g>
+        <g class="network-traces">
+          <path class="network-trace network-trace--secondary" pathLength="100" d="M250 85 150 210 85 390 175 550 90 735 160 870" />
+          <path class="network-trace" pathLength="100" d="M150 210 240 345 175 550 255 690 90 735" />
         </g>
       </svg>
     </div>
@@ -57,6 +110,14 @@
           <a href="#research-experience">Research Experience</a>
           <a href="#honours">Honours &amp; Awards</a>
         </nav>
+        <button id="theme-toggle" class="theme-toggle" type="button" role="switch" aria-checked="false" aria-label="Night mode" title="Switch to night mode" hidden>
+          <svg class="theme-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="3.5" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+          </svg>
+          <svg class="theme-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <path d="M20.5 14A8.7 8.7 0 0 1 10 3.5 8.8 8.8 0 1 0 20.5 14Z" />
+          </svg>
+        </button>
       </div>
     </header>
 
