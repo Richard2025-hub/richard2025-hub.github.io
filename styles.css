@@ -70,7 +70,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* A sparse, straight-edged network frames the reading area. */
+/* Four small networks deform slowly, leaving the reading area open. */
 .ambient-network {
   position: fixed;
   inset: 0;
@@ -88,22 +88,30 @@ body {
   content: "";
 }
 
-.network-map {
+.network-cluster {
   position: absolute;
-  top: 0;
-  width: clamp(180px, calc((100vw - var(--max-width)) / 2 + 70px), 340px);
-  height: 100%;
-  min-height: 700px;
+  width: clamp(115px, calc((100vw - var(--max-width)) / 2 - 26px), 210px);
+  height: auto;
 }
 
-.network-map--left {
-  left: -24px;
-  mask-image: linear-gradient(to right, #000 35%, rgba(0, 0, 0, 0.2));
+.network-cluster--a { top: 16vh; left: 12px; }
+
+.network-cluster--b {
+  top: 10vh;
+  right: 18px;
+  width: clamp(95px, calc((100vw - var(--max-width)) * 0.36 - 19px), 150px);
 }
 
-.network-map--right {
-  right: -24px;
-  mask-image: linear-gradient(to left, #000 35%, rgba(0, 0, 0, 0.2));
+.network-cluster--c {
+  bottom: 10vh;
+  left: 28px;
+  width: clamp(90px, calc((100vw - var(--max-width)) * 0.34 - 18px), 145px);
+}
+
+.network-cluster--d {
+  bottom: 13vh;
+  right: 3px;
+  width: clamp(115px, calc((100vw - var(--max-width)) * 0.45 - 24px), 190px);
 }
 
 .network-edges {
@@ -126,9 +134,12 @@ body {
   animation: network-flow 22s linear -6s infinite;
 }
 
-.network-trace--secondary {
-  animation-duration: 28s;
-  animation-delay: -18s;
+.network-cluster--b .network-trace { animation-duration: 28s; animation-delay: -12s; }
+.network-cluster--c .network-trace { animation-duration: 25s; animation-delay: -17s; }
+.network-cluster--d .network-trace { animation-duration: 30s; animation-delay: -9s; }
+
+.ambient-network[data-paused="true"] .network-trace {
+  animation-play-state: paused;
 }
 
 @keyframes network-flow {
@@ -602,12 +613,29 @@ footer {
   }
 }
 
-@media (max-width: 680px) {
-  .network-map--left { display: none; }
+@media (min-width: 681px) and (max-width: 1180px) {
+  .network-cluster--a { left: -42px; opacity: 0.5; }
+  .network-cluster--b { right: -20px; opacity: 0.6; }
+  .network-cluster--c { left: -20px; opacity: 0.45; }
+  .network-cluster--d { right: -35px; opacity: 0.5; }
+}
 
-  .network-map--right {
-    width: 190px;
+@media (max-width: 680px) {
+  .network-cluster--a,
+  .network-cluster--c { display: none; }
+
+  .network-cluster--b {
+    top: 24vh;
+    right: 4px;
+    width: 125px;
     opacity: 0.65;
+  }
+
+  .network-cluster--d {
+    bottom: 16vh;
+    right: -10px;
+    width: 115px;
+    opacity: 0.5;
   }
 
   html {
