@@ -44,24 +44,156 @@
             if (!preference) applyTheme(event.matches ? "dark" : "light");
           });
           const background = document.querySelector(".ambient-network");
-          const networks = [...background.querySelectorAll("svg")];
+          const canvas = background.querySelector("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) return;
+
           const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-          const syncMotion = () => {
-            const paused = reducedMotion.matches || document.hidden;
-            background.dataset.paused = String(paused);
-            networks.forEach((network) => {
-              if (paused) network.pauseAnimations();
-              else network.unpauseAnimations();
-            });
+          let width = 0, height = 0, particles = [], links = new Map();
+          let elapsed = 0, previousFrame = 0, frameId = 0;
+          let palette = {};
+          let compact = false;
+
+          const readPalette = () => {
+            const styles = getComputedStyle(root);
+            const dark = root.dataset.theme === "dark";
+            palette = {
+              line: styles.getPropertyValue("--network-line").trim() || (dark ? "#789784" : "#92a396"),
+              node: styles.getPropertyValue("--network-node").trim() || (dark ? "#a3c3ae" : "#708c79")
+            };
           };
+
+          const fadeAt = (x) => {
+            const distance = Math.min(x, width - x);
+            const gutter = Math.max(0, (width - 1040) / 2);
+            const start = Math.max(24, gutter - 42);
+            const end = Math.max(145, gutter + 30);
+            const ratio = Math.max(0, Math.min(1, (distance - start) / (end - start)));
+            return (1 - ratio * ratio * (3 - 2 * ratio)) * (compact ? 0.7 : 1);
+          };
+
+          const draw = (delta = 0) => {
+            context.clearRect(0, 0, width, height);
+            const positions = particles.map((p) => {
+              const t = elapsed * p.speed;
+              return {
+                x: p.cx + Math.sin(elapsed * 0.1 + p.group) * 14
+                  + Math.cos(t + p.phase) * p.rx * 0.75
+                  + Math.sin(t * 1.63 + p.phase * 2.1) * p.rx * 0.24,
+                y: p.cy + Math.cos(elapsed * 0.08 + p.group) * 18
+                  + Math.sin(t * 0.89 + p.phase * 1.37) * p.ry * 0.72
+                  + Math.cos(t * 1.47 + p.phase) * p.ry * 0.25
+              };
+            });
+
+            const candidates = [];
+            const reach = compact ? 95 : 112;
+            for (let i = 0; i < positions.length; i++) {
+              for (let j = i + 1; j < positions.length; j++) {
+                const distance = Math.hypot(positions[i].x - positions[j].x, positions[i].y - positions[j].y);
+                if (distance < reach) candidates.push({ i, j, distance });
+              }
+            }
+            candidates.sort((a, b) => a.distance - b.distance);
+            const degree = positions.map(() => 0);
+            const targets = new Map();
+            candidates.forEach(({ i, j, distance }) => {
+              if (degree[i] >= 3 || degree[j] >= 3) return;
+              degree[i]++;
+              degree[j]++;
+              targets.set(i + ":" + j, { i, j, alpha: Math.min(1, (reach - distance) / 38) });
+            });
+
+            targets.forEach((target, key) => {
+              if (!links.has(key)) links.set(key, { ...target, alpha: delta ? 0 : target.alpha });
+            });
+            links.forEach((link, key) => {
+              const target = targets.get(key);
+              const targetAlpha = target ? target.alpha : 0;
+              link.alpha += (targetAlpha - link.alpha) * (delta ? Math.min(1, delta * 2.5) : 1);
+              if (!target && link.alpha < 0.01) { links.delete(key); return; }
+              const a = positions[link.i], b = positions[link.j];
+              context.globalAlpha = link.alpha * 0.5 * fadeAt((a.x + b.x) / 2);
+              context.strokeStyle = palette.line;
+              context.lineWidth = 0.9;
+              context.beginPath();
+              context.moveTo(a.x, a.y);
+              context.lineTo(b.x, b.y);
+              context.stroke();
+            });
+
+            context.fillStyle = palette.node;
+            positions.forEach((point, index) => {
+              context.globalAlpha = 0.78 * fadeAt(point.x);
+              context.beginPath();
+              context.arc(point.x, point.y, index % 4 === 0 ? 2.3 : 1.7, 0, Math.PI * 2);
+              context.fill();
+            });
+            context.globalAlpha = 1;
+          };
+
+          const resize = () => {
+            width = document.documentElement.clientWidth;
+            height = window.innerHeight;
+            compact = width < 760;
+            const scale = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.round(width * scale);
+            canvas.height = Math.round(height * scale);
+            context.setTransform(scale, 0, 0, scale, 0, 0);
+            const gutter = Math.max(0, (width - 1040) / 2);
+            const side = Math.max(26, Math.min(110, gutter * 0.48));
+            const spread = Math.max(76, Math.min(118, gutter * 0.6));
+            const fields = compact
+              ? [
+                  { x: width - 45, y: height * 0.39, rx: 80, ry: 115, count: 9 },
+                  { x: width + 8, y: height * 0.84, rx: 68, ry: 78, count: 4 }
+                ]
+              : [
+                  { x: side, y: height * 0.29, rx: spread, ry: 137, count: 10 },
+                  { x: width - side, y: height * 0.49, rx: spread, ry: 190, count: 11 },
+                  { x: side + 12, y: height * 0.84, rx: spread * 0.72, ry: 84, count: 5 }
+                ];
+            particles = fields.flatMap((field, group) => Array.from({ length: field.count }, (_, i) => ({
+              cx: field.x, cy: field.y, rx: field.rx, ry: field.ry,
+              phase: i * 2.399963 + group * 1.7,
+              speed: 0.12 + (i % 4) * 0.0175,
+              group: group * 2.1
+            })));
+            links.clear();
+            draw();
+          };
+
+          const frame = (now) => {
+            frameId = requestAnimationFrame(frame);
+            if (previousFrame && now - previousFrame < 1000 / 30) return;
+            const delta = previousFrame ? Math.min((now - previousFrame) / 1000, 0.08) : 0;
+            previousFrame = now;
+            elapsed += delta;
+            draw(delta);
+          };
+
+          const syncMotion = () => {
+            cancelAnimationFrame(frameId);
+            previousFrame = 0;
+            if (!reducedMotion.matches && !document.hidden) frameId = requestAnimationFrame(frame);
+            else draw();
+          };
+
+          readPalette();
+          resize();
+          window.addEventListener("load", () => { readPalette(); draw(); }, { once: true });
+          window.addEventListener("resize", resize, { passive: true });
           reducedMotion.addEventListener("change", syncMotion);
           document.addEventListener("visibilitychange", syncMotion);
+          new MutationObserver(() => { readPalette(); draw(); }).observe(root, {
+            attributes: true, attributeFilter: ["data-theme"]
+          });
           syncMotion();
 
         });
       })();
     </script>
-    <link rel="stylesheet" href="./styles.css?v=20261120-moving-clusters" />
+    <link rel="stylesheet" href="./styles.css?v=20261120-fluid-network" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -84,142 +216,7 @@
   </head>
   <body>
     <div class="ambient-network" aria-hidden="true">
-      <svg class="network-cluster network-cluster--a" viewBox="0 0 210 200" fill="none" focusable="false">
-        <g class="network-edges">
-          <path d="M20 38 105 18 M105 18 184 72 M184 72 138 148 M138 148 45 166 M45 166 20 38 M20 38 91 106 M105 18 91 106 M138 148 91 106">
-            <animate attributeName="d" values="M20 38 105 18 M105 18 184 72 M184 72 138 148 M138 148 45 166 M45 166 20 38 M20 38 91 106 M105 18 91 106 M138 148 91 106;M24.4 50.4 115.1 12.6 M115.1 12.6 169.3 61 M169.3 61 142.7 156.3 M142.7 156.3 54.9 174.9 M54.9 174.9 24.4 50.4 M24.4 50.4 76.3 95.5 M115.1 12.6 76.3 95.5 M142.7 156.3 76.3 95.5;M32.4 42.7 100.8 26.2 M100.8 26.2 171.8 56.3 M171.8 56.3 142.9 160.7 M142.9 160.7 56.9 164.8 M56.9 164.8 32.4 42.7 M32.4 42.7 85.4 94.9 M100.8 26.2 85.4 94.9 M142.9 160.7 85.4 94.9;M20 38 105 18 M105 18 184 72 M184 72 138 148 M138 148 45 166 M45 166 20 38 M20 38 91 106 M105 18 91 106 M138 148 91 106" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-        <g class="network-nodes">
-          <circle cx="20" cy="38" r="2.4">
-            <animate attributeName="cx" values="20;24.4;32.4;20" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="38;50.4;42.7;38" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="105" cy="18" r="2.4">
-            <animate attributeName="cx" values="105;115.1;100.8;105" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="18;12.6;26.2;18" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="184" cy="72" r="2.4">
-            <animate attributeName="cx" values="184;169.3;171.8;184" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="72;61;56.3;72" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="138" cy="148" r="2.4">
-            <animate attributeName="cx" values="138;142.7;142.9;138" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="148;156.3;160.7;148" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="45" cy="166" r="2.4">
-            <animate attributeName="cx" values="45;54.9;56.9;45" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="166;174.9;164.8;166" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="91" cy="106" r="2.4">
-            <animate attributeName="cx" values="91;76.3;85.4;91" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="106;95.5;94.9;106" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-        </g>
-        <g class="network-traces">
-          <path class="network-trace" pathLength="100" d="M20 38 105 18 91 106 138 148 45 166">
-            <animate attributeName="d" values="M20 38 105 18 91 106 138 148 45 166;M24.4 50.4 115.1 12.6 76.3 95.5 142.7 156.3 54.9 174.9;M32.4 42.7 100.8 26.2 85.4 94.9 142.9 160.7 56.9 164.8;M20 38 105 18 91 106 138 148 45 166" dur="18s" begin="-4s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-      </svg>
-      <svg class="network-cluster network-cluster--b" viewBox="0 0 210 200" fill="none" focusable="false">
-        <g class="network-edges">
-          <path d="M38 20 153 40 M153 40 118 139 M118 139 20 105 M20 105 38 20 M38 20 118 139">
-            <animate attributeName="d" values="M38 20 153 40 M153 40 118 139 M118 139 20 105 M20 105 38 20 M38 20 118 139;M52 24.7 150.6 27.4 M150.6 27.4 106.4 137.5 M106.4 137.5 34.1 118 M34.1 118 52 24.7 M52 24.7 106.4 137.5;M42.7 34.9 140.8 34.4 M140.8 34.4 114 131.6 M114 131.6 32.5 120.5 M32.5 120.5 42.7 34.9 M42.7 34.9 114 131.6;M38 20 153 40 M153 40 118 139 M118 139 20 105 M20 105 38 20 M38 20 118 139" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-        <g class="network-nodes">
-          <circle cx="38" cy="20" r="2.4">
-            <animate attributeName="cx" values="38;52;42.7;38" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="20;24.7;34.9;20" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="153" cy="40" r="2.4">
-            <animate attributeName="cx" values="153;150.6;140.8;153" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="40;27.4;34.4;40" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="118" cy="139" r="2.4">
-            <animate attributeName="cx" values="118;106.4;114;118" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="139;137.5;131.6;139" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="20" cy="105" r="2.4">
-            <animate attributeName="cx" values="20;34.1;32.5;20" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="105;118;120.5;105" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-        </g>
-        <g class="network-traces">
-          <path class="network-trace" pathLength="100" d="M153 40 38 20 118 139 20 105">
-            <animate attributeName="d" values="M153 40 38 20 118 139 20 105;M150.6 27.4 52 24.7 106.4 137.5 34.1 118;M140.8 34.4 42.7 34.9 114 131.6 32.5 120.5;M153 40 38 20 118 139 20 105" dur="23s" begin="-11s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-      </svg>
-      <svg class="network-cluster network-cluster--c" viewBox="0 0 210 200" fill="none" focusable="false">
-        <g class="network-edges">
-          <path d="M20 50 90 18 M90 18 167 70 M167 70 114 155 M114 155 46 131 M46 131 20 50 M90 18 46 131">
-            <animate attributeName="d" values="M20 50 90 18 M90 18 167 70 M167 70 114 155 M114 155 46 131 M46 131 20 50 M90 18 46 131;M32.9 43.4 76.9 7.7 M76.9 7.7 167.3 79.2 M167.3 79.2 126.8 162.9 M126.8 162.9 32.8 119.7 M32.8 119.7 32.9 43.4 M76.9 7.7 32.8 119.7;M13.4 63.8 79 2.8 M79 2.8 174.2 76.5 M174.2 76.5 124.6 161.6 M124.6 161.6 38.2 115.7 M38.2 115.7 13.4 63.8 M79 2.8 38.2 115.7;M20 50 90 18 M90 18 167 70 M167 70 114 155 M114 155 46 131 M46 131 20 50 M90 18 46 131" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-        <g class="network-nodes">
-          <circle cx="20" cy="50" r="2.4">
-            <animate attributeName="cx" values="20;32.9;13.4;20" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="50;43.4;63.8;50" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="90" cy="18" r="2.4">
-            <animate attributeName="cx" values="90;76.9;79;90" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="18;7.7;2.8;18" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="167" cy="70" r="2.4">
-            <animate attributeName="cx" values="167;167.3;174.2;167" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="70;79.2;76.5;70" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="114" cy="155" r="2.4">
-            <animate attributeName="cx" values="114;126.8;124.6;114" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="155;162.9;161.6;155" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="46" cy="131" r="2.4">
-            <animate attributeName="cx" values="46;32.8;38.2;46" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="131;119.7;115.7;131" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-        </g>
-        <g class="network-traces">
-          <path class="network-trace" pathLength="100" d="M167 70 90 18 46 131 20 50">
-            <animate attributeName="d" values="M167 70 90 18 46 131 20 50;M167.3 79.2 76.9 7.7 32.8 119.7 32.9 43.4;M174.2 76.5 79 2.8 38.2 115.7 13.4 63.8;M167 70 90 18 46 131 20 50" dur="20s" begin="-8s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-      </svg>
-      <svg class="network-cluster network-cluster--d" viewBox="0 0 210 200" fill="none" focusable="false">
-        <g class="network-edges">
-          <path d="M30 20 150 38 M150 38 177 132 M177 132 78 171 M78 171 17 109 M17 109 30 20 M150 38 17 109 M177 132 17 109">
-            <animate attributeName="d" values="M30 20 150 38 M150 38 177 132 M177 132 78 171 M78 171 17 109 M17 109 30 20 M150 38 17 109 M177 132 17 109;M32.1 7.1 136.1 37.8 M136.1 37.8 188.9 144.9 M188.9 144.9 79.9 167.8 M79.9 167.8 3.2 96.9 M3.2 96.9 32.1 7.1 M136.1 37.8 3.2 96.9 M188.9 144.9 3.2 96.9;M17.1 22.3 148.5 24.7 M148.5 24.7 190 147.5 M190 147.5 78.7 163.7 M78.7 163.7 4 103.3 M4 103.3 17.1 22.3 M148.5 24.7 4 103.3 M190 147.5 4 103.3;M30 20 150 38 M150 38 177 132 M177 132 78 171 M78 171 17 109 M17 109 30 20 M150 38 17 109 M177 132 17 109" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-        <g class="network-nodes">
-          <circle cx="30" cy="20" r="2.4">
-            <animate attributeName="cx" values="30;32.1;17.1;30" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="20;7.1;22.3;20" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="150" cy="38" r="2.4">
-            <animate attributeName="cx" values="150;136.1;148.5;150" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="38;37.8;24.7;38" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="177" cy="132" r="2.4">
-            <animate attributeName="cx" values="177;188.9;190;177" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="132;144.9;147.5;132" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="78" cy="171" r="2.4">
-            <animate attributeName="cx" values="78;79.9;78.7;78" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="171;167.8;163.7;171" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-          <circle cx="17" cy="109" r="2.4">
-            <animate attributeName="cx" values="17;3.2;4;17" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-            <animate attributeName="cy" values="109;96.9;103.3;109" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </circle>
-        </g>
-        <g class="network-traces">
-          <path class="network-trace" pathLength="100" d="M30 20 150 38 17 109 177 132 78 171">
-            <animate attributeName="d" values="M30 20 150 38 17 109 177 132 78 171;M32.1 7.1 136.1 37.8 3.2 96.9 188.9 144.9 79.9 167.8;M17.1 22.3 148.5 24.7 4 103.3 190 147.5 78.7 163.7;M30 20 150 38 17 109 177 132 78 171" dur="26s" begin="-16s" repeatCount="indefinite" keyTimes="0;0.333333;0.666667;1" calcMode="spline" keySplines="0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1" />
-          </path>
-        </g>
-      </svg>
+      <canvas class="network-canvas"></canvas>
     </div>
     <header class="site-header">
       <div class="container header-inner">
