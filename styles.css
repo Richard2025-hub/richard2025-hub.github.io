@@ -479,10 +479,10 @@ h2::after {
   list-style: none;
 }
 
+/* Columns let each award keep its own content height. */
 .honours-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 36px;
+  column-count: 2;
+  column-gap: 36px;
   line-height: 1.48;
 }
 
@@ -491,6 +491,7 @@ h2::after {
   margin: 0;
   padding: 16px 0 16px 22px;
   border-top: 1px solid var(--border);
+  break-inside: avoid;
 }
 
 .plain-list.compact li::before {
@@ -638,7 +639,7 @@ footer {
   }
 
   .honours-list {
-    grid-template-columns: 1fr;
+    column-count: 1;
   }
 
   footer {
