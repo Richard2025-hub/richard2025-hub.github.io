@@ -168,7 +168,7 @@
             if (previousFrame && now - previousFrame < 1000 / 30) return;
             const delta = previousFrame ? Math.min((now - previousFrame) / 1000, 0.08) : 0;
             previousFrame = now;
-            elapsed += delta * 0.8;
+            elapsed += delta * 0.32;
             draw(delta);
           };
 
